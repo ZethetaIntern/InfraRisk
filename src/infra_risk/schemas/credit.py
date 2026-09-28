@@ -118,6 +118,30 @@ class LGDPrediction(BaseModel):
     model_version: str = "credit-ensemble-v1.0"
 
 
+class ELDistribution(BaseModel):
+    """Expected Loss distribution"""
+    el_mean: float
+    el_std: float
+    el_p10: float
+    el_p50: float
+    el_p90: float
+    el_p99: float
+    economic_capital_ul: float
+    expected_loss: float
+
+
+class ELPrediction(BaseModel):
+    """Expected Loss distribution prediction (alias for serialization)"""
+    el_mean: float
+    el_std: float
+    el_p10: float
+    el_p50: float
+    el_p90: float
+    el_p99: float
+    economic_capital_ul: float
+    expected_loss: float
+
+
 class CreditScore(BaseModel):
     """Complete credit assessment"""
     project_id: str

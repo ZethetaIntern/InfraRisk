@@ -7,12 +7,9 @@ from typing import Optional, List, Dict, Any
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
 
 from src.infra_risk.schemas import (
     Project,
-    ProjectPortfolio,
     CreditScore,
     DemandForecast,
     SiteProgress,
@@ -162,7 +159,7 @@ def render_portfolio():
             sub_sector = st.text_input("Sub-Sector", value="toll_road")
             stage = st.selectbox(
                 "Stage",
-                ["concept", "pre_feasibility", "feasibility", "procurement", 
+                ["concept", "pre_feasibility", "feasibility", "procurement",
                  "construction", "ramp_up", "operational", "refinancing"],
             )
         with col2:

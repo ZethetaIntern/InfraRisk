@@ -41,6 +41,7 @@ __all__ = [
     "LGDPrediction",
     "ELPrediction",
     "CreditScore",
+
     # Waterfall
     "CashFlowWaterfall",
     "WaterfallTier",
