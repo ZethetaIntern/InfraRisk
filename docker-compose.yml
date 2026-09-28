@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  infra-risk-api:
+    build: .
+    container_name: infra-risk-api
+    command: uvicorn src.infra_risk.api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./models:/app/models
+      - ./data:/app/data
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - GOOGLE_EARTH_ENGINE_CREDENTIALS=${GOOGLE_EARTH_ENGINE_CREDENTIALS}
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - mlflow
+      - postgres
+      - redis
+    networks:
+      - infra-risk-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  infra-risk-dashboard:
+    build: .
+    container_name: infra-risk-dashboard
+    command: streamlit run src/infra_risk/dashboard/app.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./models:/app/models
+      - ./data:/app/data
+    environment:
+      - ENVIRONMENT=development
+      - API_URL=http://infra-risk-api:8000
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - infra-risk-api
+    networks:
+      - infra-risk-network
+
+  infra-risk-simulation:
+    build: .
+    container_name: infra-risk-simulation
+    command: python -m src.infra_risk.simulation.engine
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./models:/app/models
+      - ./data:/app/data
+    environment:
+      - ENVIRONMENT=development
+      - API_URL=http://infra-risk-api:8000
+    depends_on:
+      - infra-risk-api
+    networks:
+      - infra-risk-network
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.8.0
+    container_name: infra-risk-mlflow
+    ports:
+      - "5000:5000"
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://mlflow:mlflow@postgres:5432/mlflow --default-artifact-root s3://mlflow-artifacts/
+    environment:
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - infra-risk-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: infra-risk-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/data
+    networks:
+      - infra-risk-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: infra-risk-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=mlflow
+      - POSTGRES_PASSWORD=mlflow
+      - POSTGRES_DB=mlflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - infra-risk-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: infra-risk-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - infra-risk-network
+
+  jupyter:
+    image: jupyter/datascience-notebook:python-3.10
+    container_name: infra-risk-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work/notebooks
+      - ./src:/home/jovyan/work/src
+      - ./data:/home/jovyan/work/data
+      - ./models:/home/jovyan/work/models
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    networks:
+      - infra-risk-network
+
+volumes:
+  minio-data:
+  postgres-data:
+  redis-data:
+
+networks:
+  infra-risk-network:
+    driver: bridge
